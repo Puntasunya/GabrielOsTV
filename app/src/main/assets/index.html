@@ -805,5 +805,22 @@
   loadPins();
   window.refreshApps();
 </script>
+<script>
+(function () {
+  var dock = document.getElementById('dock');
+  var root = document.documentElement;
+  function sync() {
+    var el = dock.querySelector('.app-icon.focused');
+    if (!el) return;
+    var g = el.style.getPropertyValue('--g');
+    var m = g.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (m) root.style.setProperty('--accent', 'rgb(' + m[1] + ',' + m[2] + ',' + m[3] + ')');
+  }
+  new MutationObserver(sync).observe(dock, {
+    attributes: true, subtree: true, childList: true, attributeFilter: ['class', 'style']
+  });
+  sync();
+})();
+</script>
 </body>
 </html>
