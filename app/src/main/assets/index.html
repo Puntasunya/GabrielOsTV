@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GabrielOS TV</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #0b0f19;
+    color: white;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  .bg {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: radial-gradient(circle at 50% 30%, #1e293b, #070a12);
+    z-index: 0;
+  }
+
+  /* ผืนดีไซน์ 1920x1080 สเกลให้พอดีจอทุกขนาด */
+  #stage {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1920px;
+    height: 1080px;
+    transform-origin: 0 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .top-bar {
+    position: absolute;
+    top: 50px;
+    left: 60px;
+    right: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .brand {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(to right, #ffffff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 20px;
+    color: #cbd5e1;
+    font-weight: 500;
+  }
+
+  .app-label-container {
+    position: absolute;
+    bottom: 200px;
+    left: 60px;
+    max-width: 600px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .app-name {
+    font-size: 52px;
+    font-weight: 800;
+    margin: 0 0 8px 0;
+    letter-spacing: -1px;
+  }
+  .app-desc {
+    font-size: 22px;
+    color: #94a3b8;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .dock {
+    display: flex;
+    gap: 28px;
+    padding: 0 60px 60px 60px;
+    align-items: center;
+  }
+  .app-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 36px;
+    font-weight: bold;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    cursor: pointer;
+    background: #1e293b;
+    color: white;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+  }
+  .app-icon img { width: 60px; height: 60px; border-radius: 12px; }
+
+  .app-icon.focused {
+    transform: scale(1.25);
+    border-color: #ffffff;
+    background: var(--c);
+    box-shadow: 0 12px 35px var(--g);
+  }
+
+  /* ---------- All Apps drawer (frosted glass) ---------- */
+  .drawer {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 50;
+    padding: 50px 60px 40px 60px;
+    display: flex;
+    flex-direction: column;
+    background: rgba(7, 10, 18, 0.78);
+    -webkit-backdrop-filter: blur(30px) saturate(140%);
+    backdrop-filter: blur(30px) saturate(140%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .drawer.open { opacity: 1; pointer-events: auto; }
+  .drawer-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .drawer-title {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(to right, #ffffff, #94a3b8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .drawer-hint { font-size: 20px; color: #94a3b8; }
+
+  .grid {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    grid-auto-rows: min-content;
+    gap: 26px 16px;
+    overflow-y: auto;
+    padding: 40px 20px;
+    margin: 0 -20px;
+    scroll-behavior: smooth;
+  }
+  .grid::-webkit-scrollbar { display: none; }
+  .empty { grid-column: 1 / -1; text-align: center; color: #94a3b8; font-size: 24px; padding-top: 80px; }
+
+  .tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    cursor: pointer;
+  }
+  .tile .ico {
+    position: relative;
+    width: 104px;
+    height: 104px;
+    border-radius: 50%;
+    background: #1e293b;
+    border: 2px solid transparent;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 40px;
+    font-weight: bold;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .tile .ico img { width: 68px; height: 68px; border-radius: 14px; }
+  .tile .nm {
+    font-size: 20px;
+    color: #cbd5e1;
+    text-align: center;
+    max-width: 190px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .tile.pinned .ico::after {
+    content: "";
+    position: absolute;
+    top: 2px; right: 2px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #3b82f6;
+    border: 3px solid #0b0f19;
+  }
+  .tile.sel { transform: scale(1.15); }
+  .tile.sel .ico {
+    border-color: #ffffff;
+    background: #334155;
+    box-shadow: 0 12px 35px rgba(59, 130, 246, 0.55);
+  }
+  .tile.sel .nm { color: #ffffff; }
+
+  /* ---------- Context menu ---------- */
+  .menu-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 80;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+  }
+  .menu-overlay.open { opacity: 1; pointer-events: auto; }
+  .menu-panel {
+    width: 520px;
+    padding: 28px;
+    border-radius: 28px;
+    background: rgba(30, 41, 59, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  }
+  .menu-head { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; }
+  .menu-ico {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    background: #0b0f19;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 30px; font-weight: bold;
+    flex-shrink: 0;
+  }
+  .menu-ico img { width: 48px; height: 48px; border-radius: 10px; }
+  .menu-title { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menu-item {
+    padding: 20px 26px;
+    margin-top: 8px;
+    border-radius: 16px;
+    font-size: 26px;
+    font-weight: 600;
+    color: #cbd5e1;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .menu-item.sel { background: #ffffff; color: #0b0f19; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: absolute;
+    top: 130px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    padding: 14px 28px;
+    border-radius: 999px;
+    background: rgba(30, 41, 59, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    font-size: 22px;
+    opacity: 0;
+    transition: all 0.25s;
+    z-index: 100;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="bg"></div>
+
+  <div id="stage">
+    <div class="top-bar">
+      <div class="brand">GabrielOS TV</div>
+      <div class="status">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+          <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+          <line x1="12" y1="20" x2="12.01" y2="20"></line>
+        </svg>
+        <span id="clock">08:45</span>
+        <span id="date" style="opacity: 0.6;">Thu, 22 Oct</span>
+      </div>
+    </div>
+
+    <div class="app-label-container" id="labelBox">
+      <h1 class="app-name" id="appName">Netflix</h1>
+      <p class="app-desc" id="appDesc">ภาพยนตร์ ซีรีส์ และความบันเทิงระดับโลก รับชมได้ไม่จำกัด</p>
+    </div>
+
+    <div class="dock" id="dock"></div>
+
+    <!-- All Apps -->
+    <div class="drawer" id="drawer">
+      <div class="drawer-head">
+        <div class="drawer-title">แอปทั้งหมด</div>
+        <div class="drawer-hint">กด OK ค้างไว้เพื่อปักหมุดไปที่หน้าหลัก</div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <!-- Context menu -->
+    <div class="menu-overlay" id="menu">
+      <div class="menu-panel">
+        <div class="menu-head">
+          <div class="menu-ico" id="menuIco"></div>
+          <div class="menu-title" id="menuTitle"></div>
+        </div>
+        <div id="menuItems"></div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+<script>
+  /* ---------- Stage scaling (1920x1080) ---------- */
+  const stage = document.getElementById('stage');
+  function fit() {
+    const s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    const ox = (window.innerWidth - 1920 * s) / 2;
+    const oy = (window.innerHeight - 1080 * s) / 2;
+    stage.style.transform = 'translate(' + ox + 'px,' + oy + 'px) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  /* ---------- Data ---------- */
+  const BASE = [
+    { name: "Netflix", desc: "ภาพยนตร์ ซีรีส์ และความบันเทิงระดับโลก รับชมได้ไม่จำกัด", glyph: "N", color: "#E50914", glow: "rgba(229, 9, 20, 0.6)", pkgs: "com.netflix.ninja,com.netflix.mediaclient" },
+    { name: "YouTube", desc: "วิดีโอ เพลง และสตรีมมิ่งสด", glyph: "▶", color: "#FF0000", glow: "rgba(255, 0, 0, 0.6)", pkgs: "com.google.android.youtube.tv,com.google.android.youtube" },
+    { name: "Spotify", desc: "เพลงและพอดแคสต์สำหรับทุกช่วงเวลาของคุณ", glyph: "♫", color: "#1DB954", glow: "rgba(29, 185, 84, 0.6)", pkgs: "com.spotify.tv.android,com.spotify.music" },
+    { name: "Prime Video", desc: "รับชม Amazon Originals และภาพยนตร์ยอดฮิต", glyph: "✓", color: "#00A8E1", glow: "rgba(0, 168, 225, 0.6)", pkgs: "com.amazon.amazonvideo.livingroom,com.amazon.avod.thirdpartyclient,com.amazon.avod" },
+    { name: "แอปทั้งหมด", desc: "เรียกดูแอปพลิเคชันและการตั้งค่าทั้งหมด", glyph: "⊞", color: "#3b82f6", glow: "rgba(59, 130, 246, 0.6)", action: "drawer" }
+  ];
+  const MAX_PINS = 8;
+  const COLS = 8;
+  const hasBridge = (typeof Android !== 'undefined');
+  const MOCK = ["Settings","Files","Browser","Gallery","Games","Music","Movies","Photos","Weather","Clock","Calendar","Notes","Maps","Store","Camera","Help"]
+    .map(n => ({ pkg: "mock." + n.toLowerCase(), name: n, icon: "" }));
+
+  let dockItems = BASE.slice();
+  let allApps = [];
+  let pins = [];
+  let focusIndex = 0;
+  let drawerIndex = 0;
+  let menuIndex = 0;
+  let menuItems = [];
+  let menuApp = null;
+  let mode = 'dock'; // dock | drawer | menu
+
+  const $ = id => document.getElementById(id);
+  const dockEl = $('dock'), gridEl = $('grid'), drawerEl = $('drawer'), menuEl = $('menu');
+  const labelBox = $('labelBox');
+
+  /* ---------- Clock ---------- */
+  const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const pad = n => (n < 10 ? "0" : "") + n;
+  function tick() {
+    const d = new Date();
+    $('clock').textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+    $('date').textContent = DAYS[d.getDay()] + ", " + d.getDate() + " " + MONTHS[d.getMonth()];
+  }
+  tick();
+  setInterval(tick, 1000);
+
+  /* ---------- Toast ---------- */
+  let toastTimer;
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  /* ---------- Pins ---------- */
+  function loadPins() {
+    try {
+      const raw = hasBridge ? Android.getPins() : (localStorage.getItem('pins') || '[]');
+      pins = JSON.parse(raw);
+    } catch (e) { pins = []; }
+  }
+  function savePins() {
+    const j = JSON.stringify(pins);
+    if (hasBridge) Android.savePins(j);
+    else { try { localStorage.setItem('pins', j); } catch (e) {} }
+  }
+
+  /* ---------- Dock ---------- */
+  function setLabel(item, animate) {
+    const apply = () => {
+      $('appName').innerText = item.name;
+      $('appDesc').innerText = item.desc;
+      labelBox.style.opacity = '1';
+      labelBox.style.transform = 'translateY(0)';
+    };
+    if (!animate) { apply(); return; }
+    labelBox.style.opacity = '0';
+    labelBox.style.transform = 'translateY(10px)';
+    clearTimeout(setLabel.t);
+    setLabel.t = setTimeout(apply, 150);
+  }
+
+  function renderDock() {
+    dockEl.innerHTML = '';
+    dockItems.forEach((a, i) => {
+      const d = document.createElement('div');
+      d.className = 'app-icon' + (i === focusIndex ? ' focused' : '');
+      d.id = 'app' + i;
+      d.style.setProperty('--c', a.color);
+      d.style.setProperty('--g', a.glow);
+      if (a.icon) {
+        const im = document.createElement('img');
+        im.src = 'data:image/png;base64,' + a.icon;
+        d.appendChild(im);
+      } else {
+        d.textContent = a.glyph;
+      }
+      d.addEventListener('click', () => {
+        if (mode !== 'dock') return;
+        focusIndex = i; updateFocus(); activateDock();
+      });
+      dockEl.appendChild(d);
+    });
+  }
+
+  function buildDock() {
+    const pinned = pins
+      .map(p => allApps.find(a => a.pkg === p))
+      .filter(Boolean)
+      .map(a => ({
+        name: a.name,
+        desc: "แอปที่ปักหมุดไว้บนหน้าหลัก",
+        glyph: a.name.charAt(0).toUpperCase(),
+        color: "#334155",
+        glow: "rgba(148, 163, 184, 0.55)",
+        icon: a.icon,
+        pkg: a.pkg
+      }));
+    dockItems = BASE.slice(0, 4).concat(pinned, [BASE[4]]);
+    if (focusIndex > dockItems.length - 1) focusIndex = dockItems.length - 1;
+    renderDock();
+    setLabel(dockItems[focusIndex], false);
+  }
+
+  function updateFocus() {
+    dockItems.forEach((_, idx) => {
+      const el = document.getElementById('app' + idx);
+      if (el) el.classList.toggle('focused', idx === focusIndex);
+    });
+    setLabel(dockItems[focusIndex], true);
+  }
+
+  function launch(target) {
+    if (!target) return;
+    if (hasBridge) {
+      if (!Android.launch(target)) toast("ไม่พบแอปนี้ในอุปกรณ์");
+    } else {
+      toast("Launch: " + target);
+    }
+  }
+
+  function activateDock() {
+    const it = dockItems[focusIndex];
+    if (it.action === 'drawer') openDrawer();
+    else launch(it.pkgs || it.pkg);
+  }
+
+  /* ---------- Drawer ---------- */
+  function renderGrid() {
+    gridEl.innerHTML = '';
+    if (!allApps.length) {
+      const e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'กำลังโหลดแอป…';
+      gridEl.appendChild(e);
+      return;
+    }
+    allApps.forEach((a, i) => {
+      const t = document.createElement('div');
+      t.className = 'tile' + (pins.includes(a.pkg) ? ' pinned' : '') + (i === drawerIndex ? ' sel' : '');
+      const ico = document.createElement('div');
+      ico.className = 'ico';
+      if (a.icon) {
+        const im = document.createElement('img');
+        im.src = 'data:image/png;base64,' + a.icon;
+        ico.appendChild(im);
+      } else {
+        ico.textContent = a.name.charAt(0).toUpperCase();
+      }
+      const nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = a.name;
+      t.appendChild(ico);
+      t.appendChild(nm);
+      t.addEventListener('click', () => {
+        if (mode !== 'drawer') return;
+        setGridFocus(i); launch(a.pkg);
+      });
+      gridEl.appendChild(t);
+    });
+  }
+
+  function setGridFocus(i) {
+    const tiles = gridEl.querySelectorAll('.tile');
+    if (!tiles.length) return;
+    if (tiles[drawerIndex]) tiles[drawerIndex].classList.remove('sel');
+    drawerIndex = i;
+    const el = tiles[i];
+    el.classList.add('sel');
+    const top = el.offsetTop, bottom = top + el.offsetHeight;
+    if (top - 60 < gridEl.scrollTop) gridEl.scrollTop = top - 60;
+    else if (bottom + 60 > gridEl.scrollTop + gridEl.clientHeight)
+      gridEl.scrollTop = bottom + 60 - gridEl.clientHeight;
+  }
+
+  function moveGrid(dx, dy) {
+    const n = allApps.length;
+    if (!n) return;
+    let i = drawerIndex;
+    if (dx) i = Math.max(0, Math.min(n - 1, i + dx));
+    if (dy) {
+      const t = i + dy * COLS;
+      if (t >= 0 && t < n) i = t;
+      else if (dy > 0 && Math.floor(i / COLS) < Math.floor((n - 1) / COLS)) i = n - 1;
+    }
+    if (i !== drawerIndex) setGridFocus(i);
+  }
+
+  function openDrawer() {
+    mode = 'drawer';
+    drawerIndex = 0;
+    gridEl.scrollTop = 0;
+    renderGrid();
+    drawerEl.classList.add('open');
+  }
+
+  function closeDrawer() {
+    mode = 'dock';
+    drawerEl.classList.remove('open');
+    focusIndex = dockItems.length - 1;
+    renderDock();
+    setLabel(dockItems[focusIndex], false);
+  }
+
+  /* ---------- Context menu ---------- */
+  function renderMenu() {
+    const box = $('menuItems');
+    box.innerHTML = '';
+    menuItems.forEach((m, i) => {
+      const d = document.createElement('div');
+      d.className = 'menu-item' + (i === menuIndex ? ' sel' : '');
+      d.textContent = m.label;
+      d.addEventListener('click', () => { menuIndex = i; runMenu(); });
+      box.appendChild(d);
+    });
+  }
+
+  function openMenu() {
+    const a = allApps[drawerIndex];
+    if (!a) return;
+    menuApp = a;
+    const pinned = pins.includes(a.pkg);
+    menuItems = [
+      { id: 'pin', label: pinned ? 'Unpin from Home' : 'Pin to Home' },
+      { id: 'open', label: 'Open' }
+    ];
+    menuIndex = 0;
+    $('menuTitle').textContent = a.name;
+    const ico = $('menuIco');
+    ico.innerHTML = '';
+    if (a.icon) {
+      const im = document.createElement('img');
+      im.src = 'data:image/png;base64,' + a.icon;
+      ico.appendChild(im);
+    } else {
+      ico.textContent = a.name.charAt(0).toUpperCase();
+    }
+    renderMenu();
+    menuEl.classList.add('open');
+    mode = 'menu';
+  }
+
+  function closeMenu() {
+    menuEl.classList.remove('open');
+    mode = 'drawer';
+  }
+
+  function moveMenu(dy) {
+    const n = Math.max(0, Math.min(menuItems.length - 1, menuIndex + dy));
+    if (n !== menuIndex) { menuIndex = n; renderMenu(); }
+  }
+
+  function runMenu() {
+    const m = menuItems[menuIndex];
+    const a = menuApp;
+    closeMenu();
+    if (!m || !a) return;
+    if (m.id === 'open') { launch(a.pkg); return; }
+    if (m.id === 'pin') {
+      const at = pins.indexOf(a.pkg);
+      if (at >= 0) {
+        pins.splice(at, 1);
+        toast("เอา " + a.name + " ออกจากหน้าหลักแล้ว");
+      } else {
+        if (pins.length >= MAX_PINS) { toast("หน้าหลักเต็มแล้ว (สูงสุด " + MAX_PINS + " แอป)"); return; }
+        pins.push(a.pkg);
+        toast("ปักหมุด " + a.name + " แล้ว");
+      }
+      savePins();
+      buildDock();
+      const tiles = gridEl.querySelectorAll('.tile');
+      if (tiles[drawerIndex]) tiles[drawerIndex].classList.toggle('pinned', pins.includes(a.pkg));
+    }
+  }
+
+  /* ---------- Apps loading ---------- */
+  window.refreshApps = function () {
+    setTimeout(() => {
+      try { allApps = hasBridge ? JSON.parse(Android.getApps()) : MOCK; }
+      catch (e) { allApps = []; }
+      buildDock();
+      if (mode === 'drawer') { renderGrid(); }
+    }, 50);
+  };
+
+  /* ---------- Back / Home from native ---------- */
+  window.handleBack = function () {
+    if (mode === 'menu') { closeMenu(); return true; }
+    if (mode === 'drawer') { closeDrawer(); return true; }
+    return false;
+  };
+  window.handleHome = function () {
+    if (mode === 'menu') closeMenu();
+    if (mode === 'drawer') closeDrawer();
+    focusIndex = 0;
+    updateFocus();
+  };
+
+  /* ---------- Remote control ---------- */
+  let enterDown = false, enterLong = false, enterTimer = null;
+
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+
+    if (k === 'Enter') {
+      e.preventDefault();
+      if (e.repeat || enterDown) return;
+      enterDown = true;
+      enterLong = false;
+      clearTimeout(enterTimer);
+      // กดค้าง -> เมนู Pin to Home (เฉพาะใน All Apps)
+      enterTimer = setTimeout(() => {
+        enterLong = true;
+        if (mode === 'drawer') openMenu();
+      }, 600);
+      return;
+    }
+
+    if (k === 'Escape') { e.preventDefault(); window.handleBack(); return; }
+
+    let dx = 0, dy = 0;
+    if (k === 'ArrowLeft') dx = -1;
+    else if (k === 'ArrowRight') dx = 1;
+    else if (k === 'ArrowUp') dy = -1;
+    else if (k === 'ArrowDown') dy = 1;
+    else return;
+    e.preventDefault();
+
+    if (mode === 'dock') {
+      if (dx) {
+        const n = focusIndex + dx;
+        if (n >= 0 && n < dockItems.length) { focusIndex = n; updateFocus(); }
+      }
+    } else if (mode === 'drawer') {
+      moveGrid(dx, dy);
+    } else if (mode === 'menu' && dy) {
+      moveMenu(dy);
+    }
+  });
+
+  document.addEventListener('keyup', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!enterDown) return;
+    enterDown = false;
+    clearTimeout(enterTimer);
+    if (enterLong) { enterLong = false; return; }   // เป็นการกดค้างไปแล้ว
+    if (mode === 'dock') activateDock();
+    else if (mode === 'drawer') { const a = allApps[drawerIndex]; if (a) launch(a.pkg); }
+    else if (mode === 'menu') runMenu();
+  });
+
+  function resetEnter() { enterDown = false; enterLong = false; clearTimeout(enterTimer); }
+  window.addEventListener('blur', resetEnter);
+  document.addEventListener('visibilitychange', resetEnter);
+
+  /* ---------- Init ---------- */
+  renderDock();
+  setLabel(dockItems[0], false);
+  loadPins();
+  window.refreshApps();
+</script>
+</body>
+</html>
