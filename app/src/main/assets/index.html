@@ -6,143 +6,272 @@
 <title>GabrielOS TV</title>
 <style>
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  @property --accent { syntax: '<color>'; inherits: true; initial-value: #E50914; }
-  :root { --accent: #E50914; transition: --accent 0.9s ease; }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b0f19; }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #060913; }
   body {
     color: white;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Inter', 'SF Pro Display', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Thai', 'Sarabun', sans-serif;
     -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
   }
 
-  /* ===== Background: แสงเปลี่ยนสีตามแอปที่โฟกัส ===== */
+  /* ===== พื้นหลัง: แสงออโรร่านุ่ม ๆ ซ้อนกันหลายชั้น ===== */
   .bg {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden;
     background:
-      linear-gradient(to top, rgba(3,5,10,0.85) 0%, rgba(3,5,10,0) 45%),
-      radial-gradient(ellipse at 50% 25%, #1b2740 0%, #0b1020 55%, #05070d 100%);
+      radial-gradient(1200px 720px at 10% -12%, rgba(99, 102, 241, 0.30), transparent 62%),
+      radial-gradient(1000px 640px at 104% 112%, rgba(20, 184, 166, 0.20), transparent 62%),
+      radial-gradient(900px 560px at 72% 18%, rgba(59, 130, 246, 0.13), transparent 60%),
+      linear-gradient(180deg, #0d1426 0%, #060913 100%);
   }
+
+  /* เวที 1920x1080 ย่อ/ขยายให้พอดีทุกหน้าจอ (TV = 1:1, มือถือ = ย่อส่วน) */
+  .stage {
+    position: absolute; top: 0; left: 0; width: 1920px; height: 1080px;
+    transform-origin: 0 0; overflow: hidden;
+  }
+  /* ลูกแสงสีลอยช้า ๆ เติมพื้นที่ว่างด้านบน (ใช้เฉพาะ transform เบามาก) */
   .bg::before, .bg::after { content: ''; position: absolute; border-radius: 50%; will-change: transform; }
   .bg::before {
-    width: 80vw; height: 80vw; left: -20vw; bottom: -55vw;
-    background: radial-gradient(circle, var(--accent) 0%, transparent 65%);
-    opacity: 0.30; animation: drift1 26s ease-in-out infinite alternate;
+    width: 1100px; height: 1100px; left: -220px; top: -320px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.26), rgba(99, 102, 241, 0) 66%);
+    animation: drift1 26s ease-in-out infinite alternate;
   }
   .bg::after {
-    width: 60vw; height: 60vw; right: -15vw; top: -35vw;
-    background: radial-gradient(circle, #6366f1 0%, transparent 65%);
-    opacity: 0.22; animation: drift2 32s ease-in-out infinite alternate;
+    width: 1000px; height: 1000px; right: -260px; top: 60px;
+    background: radial-gradient(circle, rgba(236, 72, 153, 0.10), rgba(20, 184, 166, 0.08) 46%, rgba(20, 184, 166, 0) 68%);
+    animation: drift2 32s ease-in-out infinite alternate;
   }
-  @keyframes drift1 { to { transform: translate3d(14vw, -8vh, 0) scale(1.15); } }
-  @keyframes drift2 { to { transform: translate3d(-12vw, 10vh, 0) scale(1.1); } }
-  @keyframes rise { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes drift1 { from { transform: translate(0, 0) scale(1); } to { transform: translate(300px, 170px) scale(1.18); } }
+  @keyframes drift2 { from { transform: translate(0, 0) scale(1); } to { transform: translate(-320px, 130px) scale(1.22); } }
 
-  /* เวที 1920x1080 ย่อ/ขยายให้พอดีทุกหน้าจอ */
-  .stage { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden; }
+  /* ===== เอฟเฟกต์พื้นหลังระดับพรีเมียม (เลเยอร์ตกแต่งล้วน ไม่กระทบการทำงาน) ===== */
+  .fx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: -1; pointer-events: none; overflow: hidden; }
+  .fx i { position: absolute; display: block; will-change: transform; }
+  .fx::after {
+    content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background: radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(2, 3, 8, 0.55) 100%);
+  }
 
-  /* ===== Top bar ===== */
+  /* โทนสีเปลี่ยนตามแอปที่เลือก (ค่าสีมาจาก JS ผ่าน --t / --t-rgb / --t2) */
+  .stage { --t: #6366f1; --t-rgb: 99, 102, 241; --t2: #14b8a6; }
+  .fx-tint { display: none; border-radius: 50%; transition: background-color 1.2s ease; }
+  @supports ((-webkit-mask-image: radial-gradient(#000, #000)) or (mask-image: radial-gradient(#000, #000))) {
+    .fx-tint {
+      display: block;
+      -webkit-mask-image: radial-gradient(closest-side, rgba(0,0,0,0.95), rgba(0,0,0,0.4) 48%, rgba(0,0,0,0) 100%);
+      mask-image: radial-gradient(closest-side, rgba(0,0,0,0.95), rgba(0,0,0,0.4) 48%, rgba(0,0,0,0) 100%);
+    }
+  }
+  .fx-tint.a { left: 880px; top: -300px; width: 1560px; height: 1560px; background-color: var(--t); animation: tintA 10s ease-in-out infinite alternate; }
+  .fx-tint.b { left: -460px; top: -160px; width: 1250px; height: 1250px; background-color: var(--t2); opacity: 0.34; }
+  .fx-tint.c { left: -160px; top: 620px; width: 1400px; height: 760px; background-color: var(--t); opacity: 0.34; }
+  @keyframes tintA { from { transform: scale(1); opacity: 0.46; } to { transform: scale(1.1); opacity: 0.66; } }
+  @keyframes glow {
+    from { box-shadow: 0 0 0 4px #fff4dc, 0 24px 52px var(--g, rgba(59, 130, 246, 0.6)); }
+    to   { box-shadow: 0 0 0 4px #fff4dc, 0 34px 86px var(--g, rgba(59, 130, 246, 0.6)); }
+  }
+
+  /* ลำแสงสปอตไลต์จากด้านบน แกว่งช้า ๆ */
+  .fx-beams {
+    left: 50%; top: -60px; width: 2800px; height: 1500px; margin-left: -1400px; transform-origin: 50% 0;
+    background: conic-gradient(from 145deg at 50% 0%,
+      rgba(0,0,0,0) 0deg, rgba(190,200,255,0.13) 7deg, rgba(0,0,0,0) 15deg,
+      rgba(0,0,0,0) 21deg, rgba(240,222,182,0.12) 29deg, rgba(0,0,0,0) 37deg,
+      rgba(0,0,0,0) 43deg, rgba(150,170,255,0.10) 51deg, rgba(0,0,0,0) 59deg,
+      rgba(0,0,0,0) 70deg);
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 80%);
+    mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 80%);
+    animation: sway 16s ease-in-out infinite alternate;
+  }
+  @keyframes sway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+
+  /* แสงเรืองด้านหลังวงโคจร */
+  .fx-glow {
+    left: 1010px; top: -210px; width: 1400px; height: 1400px;
+    background: radial-gradient(circle, rgba(232, 213, 168, 0.11), rgba(232, 213, 168, 0.03) 42%, rgba(0,0,0,0) 66%);
+    animation: breathe 9s ease-in-out infinite alternate;
+  }
+  @keyframes breathe { from { transform: scale(1); opacity: 0.75; } to { transform: scale(1.1); opacity: 1; } }
+
+  /* วงโคจรเส้นบางพร้อมดาวหางแสงวิ่งรอบ */
+  .fx-ring { border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.06); }
+  .r1 { left: 1160px; top: -60px; width: 1100px; height: 1100px; }
+  .r2 { left: 930px; top: -290px; width: 1560px; height: 1560px; }
+  .r3 { left: 1360px; top: 140px; width: 700px; height: 700px; border-color: rgba(232, 213, 168, 0.12); }
+  .r1, .r2 { border-color: rgba(var(--t-rgb), 0.22); transition: border-color 1.2s ease; }
+  .r3 { border-color: rgba(var(--t-rgb), 0.38); transition: border-color 1.2s ease; }
+  @supports ((-webkit-mask-image: radial-gradient(#000, #000)) or (mask-image: radial-gradient(#000, #000))) {
+    .fx-ring::before {
+      content: ''; position: absolute; left: -1px; top: -1px; right: -1px; bottom: -1px; border-radius: 50%;
+      -webkit-mask-image: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+      mask-image: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+      animation: spin 20s linear infinite;
+    }
+    .r1::before { background: conic-gradient(rgba(232,213,168,0) 0deg, rgba(232,213,168,0) 240deg, rgba(232,213,168,0.95) 358deg, rgba(255,255,255,0) 360deg); }
+    .r2::before { background: conic-gradient(rgba(165,180,252,0) 0deg, rgba(165,180,252,0) 270deg, rgba(190,200,255,0.9) 358deg, rgba(255,255,255,0) 360deg); animation-duration: 36s; animation-direction: reverse; }
+    .r3::before { background: conic-gradient(rgba(232,213,168,0) 0deg, rgba(232,213,168,0) 200deg, rgba(255,240,205,1) 358deg, rgba(255,255,255,0) 360deg); animation-duration: 13s; }
+  }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  /* ฝุ่นแสงทองลอยขึ้นช้า ๆ */
+  .fx-dust {
+    left: 0; top: 0; width: 1920px; height: 2160px;
+    background-size: 1920px 1080px; background-repeat: repeat-y;
+    background-image:
+      radial-gradient(2.5px 2.5px at 150px 120px, rgba(232,213,168,0.9), transparent),
+      radial-gradient(1.5px 1.5px at 380px 300px, rgba(255,255,255,0.7), transparent),
+      radial-gradient(3px 3px at 610px 180px, rgba(232,213,168,0.85), transparent),
+      radial-gradient(2px 2px at 820px 420px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1.5px 1.5px at 1050px 140px, rgba(255,255,255,0.7), transparent),
+      radial-gradient(3px 3px at 1270px 360px, rgba(232,213,168,0.8), transparent),
+      radial-gradient(2px 2px at 1490px 200px, rgba(255,255,255,0.65), transparent),
+      radial-gradient(2.5px 2.5px at 1700px 420px, rgba(232,213,168,0.85), transparent),
+      radial-gradient(1.5px 1.5px at 1830px 150px, rgba(255,255,255,0.7), transparent),
+      radial-gradient(2px 2px at 240px 560px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(2.5px 2.5px at 520px 700px, rgba(232,213,168,0.8), transparent),
+      radial-gradient(1.5px 1.5px at 760px 860px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(2px 2px at 980px 600px, rgba(232,213,168,0.8), transparent),
+      radial-gradient(1.5px 1.5px at 1210px 780px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(3px 3px at 1430px 640px, rgba(232,213,168,0.8), transparent),
+      radial-gradient(2px 2px at 1650px 820px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1.5px 1.5px at 1840px 700px, rgba(232,213,168,0.7), transparent),
+      radial-gradient(2px 2px at 90px 900px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(2.5px 2.5px at 330px 1000px, rgba(232,213,168,0.8), transparent),
+      radial-gradient(2px 2px at 1100px 1020px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(11px 11px at 700px 520px, rgba(232,213,168,0.16), transparent),
+      radial-gradient(13px 13px at 1560px 300px, rgba(165,180,252,0.2), transparent),
+      radial-gradient(10px 10px at 300px 230px, rgba(255,255,255,0.12), transparent),
+      radial-gradient(12px 12px at 1330px 930px, rgba(232,213,168,0.14), transparent);
+    animation: rise 70s linear infinite;
+  }
+  @keyframes rise { from { transform: translateY(0); } to { transform: translateY(-1080px); } }
+  /* แสงวาบเฉียงพาดผ่านจอเป็นระยะ */
+  .fx-sheen {
+    left: 0; top: -300px; width: 420px; height: 1700px;
+    background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,244,220,0.07), rgba(255,255,255,0));
+    transform: translateX(-800px) rotate(18deg);
+    animation: sheen 15s ease-in-out infinite;
+  }
+  @keyframes sheen { 0% { transform: translateX(-800px) rotate(18deg); } 45%, 100% { transform: translateX(2700px) rotate(18deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .bg::before, .bg::after, .fx i, .fx-ring::before, .app-icon.focused { animation: none; }
+  }
+
+  /* แสงขอบฟ้าด้านล่าง + เงาไล่ระดับให้ dock อ่านง่าย (เบากว่าเดิม จะได้ไม่ดำทึบ) */
+  .stage::before {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 520px;
+    background:
+      radial-gradient(1500px 380px at 50% 100%, rgba(99, 102, 241, 0.30), transparent 72%),
+      linear-gradient(to top, rgba(3, 5, 11, 0.70) 0%, rgba(3, 5, 11, 0.30) 55%, transparent 100%);
+    pointer-events: none;
+  }
+
   .top-bar {
-    position: absolute; top: 50px; left: 60px; right: 60px;
+    position: absolute; top: 48px; left: 70px; right: 70px;
     display: flex; justify-content: space-between; align-items: center;
-    animation: rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
-  .brand { display: flex; align-items: center; }
-  .brand .dot {
-    flex: 0 0 auto; width: 16px; height: 16px; margin-right: 16px; border-radius: 50%;
-    background: var(--accent); box-shadow: 0 0 22px 4px var(--accent);
-  }
-  .brand span {
-    font-size: 34px; font-weight: 800; letter-spacing: -0.5px;
-    background: linear-gradient(to right, #ffffff, #94a3b8);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  .brand {
+    font-size: 34px; font-weight: 800; letter-spacing: -0.8px;
+    background: linear-gradient(100deg, #ffffff 15%, #ecdcb4 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   }
   .status {
-    display: flex; align-items: center; font-size: 20px; color: #cbd5e1; font-weight: 500;
-    padding: 12px 30px; border-radius: 999px;
-    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    display: flex; align-items: center; font-size: 22px; color: #cbd5e1; font-weight: 500;
+    padding: 12px 28px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.09);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
   }
-  .status > * + * { margin-left: 16px; }
-  .net { display: flex; }
+  .status > * + * { margin-left: 18px; }
+  #clock { font-size: 28px; font-weight: 700; color: #fff; letter-spacing: 0.5px; font-variant-numeric: tabular-nums; }
+  .net { display: flex; color: #e2e8f0; }
   .net svg { display: block; }
-  #clock { font-size: 30px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
-  #date { color: #94a3b8; padding-left: 16px; border-left: 1px solid rgba(255,255,255,0.2); }
 
-  /* ===== App label ===== */
   .app-label-container {
-    position: absolute; bottom: 240px; left: 70px; max-width: 900px;
+    position: absolute; bottom: 228px; left: 70px; max-width: 900px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .app-label-container::before {
-    content: ''; display: block; width: 64px; height: 6px; border-radius: 3px; margin-bottom: 22px;
-    background: var(--accent); box-shadow: 0 0 24px var(--accent);
-  }
   .app-name {
-    font-size: 72px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -2px; line-height: 1.25;
-    text-shadow: 0 6px 40px rgba(0,0,0,0.5);
+    font-size: 72px; font-weight: 800; margin: 0 0 12px 0; letter-spacing: -2px; line-height: 1.1;
+    text-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .app-desc { font-size: 26px; color: #a9b6cb; margin: 0; line-height: 1.4; max-width: 640px; }
+  .app-desc { font-size: 24px; color: #a8b5cb; margin: 0; line-height: 1.5; max-width: 700px; }
 
-  /* ===== Dock (กระจกฝ้า) ===== */
+  /* ===== Dock: แท่งกระจกฝ้ารองรับไอคอน ===== */
   .dock {
-    position: absolute; left: 56px; bottom: 48px; display: flex; align-items: center;
-    padding: 24px 36px; border-radius: 999px;
-    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.1);
-    animation: rise 0.9s 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    position: absolute; left: 0; bottom: 0; z-index: 1;
+    display: flex; padding: 0 74px 60px 74px; align-items: center;
+  }
+  .dock::before {
+    content: ''; position: absolute; z-index: -1;
+    left: 44px; right: 44px; top: -24px; bottom: 36px; border-radius: 56px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(var(--t-rgb), 0.60);
+    transition: box-shadow 1s ease;
   }
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .dock, .menu { -webkit-backdrop-filter: blur(30px) saturate(150%); backdrop-filter: blur(30px) saturate(150%); }
+    .dock::before { -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); }
   }
-  .dock > * + * { margin-left: 28px; }
+  .dock > * + * { margin-left: 30px; }
   .app-icon {
-    flex: 0 0 auto; width: 96px; height: 96px; border-radius: 50%;
+    position: relative;
+    flex: 0 0 auto; width: 104px; height: 104px; border-radius: 33px;
     display: flex; justify-content: center; align-items: center;
-    font-size: 36px; font-weight: bold; cursor: pointer; overflow: hidden;
-    background: linear-gradient(145deg, #2a3850, #172033); color: #e2e8f0;
-    border: 2px solid rgba(255,255,255,0.08);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 6px 16px rgba(0,0,0,0.35);
-    transition: transform 0.3s cubic-bezier(0.2,0.8,0.2,1), box-shadow 0.3s, background-color 0.3s, border-color 0.3s;
+    font-size: 40px; font-weight: 800;
+    transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    cursor: pointer; background: var(--c, #3b82f6); color: white;
+    border: 0; overflow: hidden;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  }
+  /* เงาแสงสะท้อนบนผิวไอคอน */
+  .app-icon::after {
+    content: ''; position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0) 45%, rgba(0, 0, 0, 0.22) 100%);
+    pointer-events: none;
   }
   .app-icon svg { display: block; }
   .app-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .app-icon.focused {
-    transform: scale(1.25) translateY(-4px); border-color: #ffffff; color: #fff;
-    background-color: var(--c, #3b82f6);
-    background-image: linear-gradient(150deg, rgba(255,255,255,0.32), rgba(255,255,255,0) 55%);
-    box-shadow: 0 0 0 7px rgba(255,255,255,0.14), 0 18px 44px var(--g, rgba(59,130,246,0.6)), 0 0 70px var(--g, rgba(59,130,246,0.35));
+    transform: scale(1.3) translateY(-8px);
+    animation: glow 2.6s ease-in-out infinite alternate;
+    background: var(--c, #3b82f6);
+    box-shadow: 0 0 0 4px #fff4dc, 0 26px 56px var(--g, rgba(59, 130, 246, 0.6));
   }
 
-  /* ===== All Apps drawer ===== */
+  /* ===== All Apps drawer (frosted glass) ===== */
   .drawer {
     position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; z-index: 20;
-    padding: 60px 90px 0 90px;
-    background: rgba(7, 10, 18, 0.93);
+    padding: 56px 90px 0 90px;
+    background: rgba(7, 10, 18, 0.94);
     opacity: 0; visibility: hidden;
     transition: opacity 0.25s ease, visibility 0.25s;
   }
   @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .drawer {
-      background: rgba(15, 23, 42, 0.55);
-      -webkit-backdrop-filter: blur(40px) saturate(140%);
-      backdrop-filter: blur(40px) saturate(140%);
+      background:
+        radial-gradient(1000px 600px at 90% -10%, rgba(99, 102, 241, 0.22), transparent 62%),
+        radial-gradient(900px 560px at 0% 110%, rgba(20, 184, 166, 0.14), transparent 62%),
+        rgba(12, 18, 33, 0.58);
+      -webkit-backdrop-filter: blur(44px) saturate(150%);
+      backdrop-filter: blur(44px) saturate(150%);
     }
   }
   .drawer.open { opacity: 1; visibility: visible; }
-  .drawer-head { display: flex; align-items: center; justify-content: space-between; height: 90px; padding: 0 10px; }
-  .drawer-title { margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -1px; }
+  .drawer-head { display: flex; align-items: center; justify-content: space-between; height: 96px; padding: 0 10px; }
+  .drawer-title { margin: 0; font-size: 50px; font-weight: 800; letter-spacing: -1.5px; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.4); }
   .drawer-right { display: flex; align-items: center; }
   .drawer-hint {
-    font-size: 20px; color: #94a3b8; padding: 10px 22px; border-radius: 999px;
-    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+    font-size: 20px; color: #a8b5cb;
+    padding: 12px 24px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.08);
   }
   .drawer-close {
-    width: 64px; height: 64px; border-radius: 50%; margin-left: 24px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.1);
+    width: 66px; height: 66px; border-radius: 50%; margin-left: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255, 255, 255, 0.10); border: 1px solid rgba(255, 255, 255, 0.14);
   }
   .grid {
-    position: relative; height: calc(100% - 90px); overflow-y: auto; overflow-x: hidden;
+    position: relative; height: calc(100% - 96px); overflow-y: auto; overflow-x: hidden;
     padding: 30px 10px 80px 10px;
     display: grid; grid-template-columns: repeat(7, 1fr); grid-gap: 30px 16px;
     align-content: start;
@@ -150,72 +279,78 @@
   .grid::-webkit-scrollbar { display: none; }
   .tile {
     display: flex; flex-direction: column; align-items: center;
-    padding: 22px 8px 18px 8px; border-radius: 30px; cursor: pointer;
-    background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.06);
-    transition: transform 0.25s, background 0.2s, border-color 0.2s, box-shadow 0.25s;
+    padding: 24px 8px 20px 8px; border-radius: 34px; cursor: pointer;
+    border: 2px solid transparent;
+    transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
   }
-  .t-wrap { position: relative; width: 104px; height: 104px; }
+  .t-wrap { position: relative; width: 112px; height: 112px; }
   .t-icon {
-    width: 104px; height: 104px; border-radius: 50%; overflow: hidden;
-    background: #1e293b; color: #fff; border: 2px solid rgba(255,255,255,0.08);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.35);
+    width: 112px; height: 112px; border-radius: 34px; overflow: hidden;
+    background: linear-gradient(145deg, #2a3750, #19223a); color: #fff; border: 2px solid transparent;
     display: flex; align-items: center; justify-content: center;
+    font-size: 40px; font-weight: 800;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.12);
     transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .t-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .t-icon svg { display: block; }
   .t-name {
-    margin-top: 18px; font-size: 22px; font-weight: 600; color: #cbd5e1; text-align: center;
+    margin-top: 20px; font-size: 22px; font-weight: 600; color: #b4c0d4; text-align: center;
     max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .badge {
-    position: absolute; top: -6px; right: -6px; width: 34px; height: 34px; border-radius: 50%;
-    background: var(--accent); border: 3px solid #0f172a; display: flex; align-items: center; justify-content: center;
+    position: absolute; top: -8px; right: -8px; width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(145deg, #60a5fa, #3b82f6); border: 3px solid #0f172a;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 14px rgba(59, 130, 246, 0.45);
   }
   .tile.focused {
-    background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.4);
-    transform: translateY(-6px); box-shadow: 0 18px 40px rgba(0,0,0,0.4);
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+    border-color: rgba(255, 255, 255, 0.32);
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.38);
   }
   .tile.focused .t-icon {
     transform: scale(1.18); border-color: #fff;
-    box-shadow: 0 12px 35px var(--g, rgba(59, 130, 246, 0.55));
+    box-shadow: 0 16px 40px var(--g, rgba(59, 130, 246, 0.55));
   }
-  .tile.focused .t-name { color: #fff; }
+  .tile.focused .t-name { color: #fff; font-weight: 700; }
 
   /* ===== Context menu ===== */
   .menu-wrap {
     position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; z-index: 30;
     display: flex; justify-content: center; align-items: center;
-    background: rgba(0, 0, 0, 0.55);
+    background: radial-gradient(900px 600px at 50% 50%, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.72));
     opacity: 0; visibility: hidden; transition: opacity 0.2s, visibility 0.2s;
   }
   .menu-wrap.open { opacity: 1; visibility: visible; }
   .menu {
-    width: 560px; padding: 36px; border-radius: 36px;
-    background: rgba(20, 28, 45, 0.92); border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+    width: 580px; padding: 38px; border-radius: 38px;
+    background: linear-gradient(180deg, rgba(38, 50, 72, 0.98), rgba(24, 33, 52, 0.98));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.10);
   }
-  .menu-head { display: flex; align-items: center; margin-bottom: 20px; }
+  .menu-head { display: flex; align-items: center; margin-bottom: 22px; padding-bottom: 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
   .menu-head .mi {
-    flex: 0 0 auto; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; margin-right: 18px;
+    flex: 0 0 auto; width: 68px; height: 68px; border-radius: 22px; overflow: hidden; margin-right: 20px;
     background: #0b0f19; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   }
   .menu-head .mi img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .menu-head .mi svg { display: block; }
-  .menu-title { font-size: 30px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .menu-title { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .menu-item {
-    margin-top: 8px; padding: 22px 26px; border-radius: 20px; font-size: 26px; font-weight: 600;
-    color: #cbd5e1; cursor: pointer; background: rgba(255,255,255,0.05);
-    transition: background 0.15s, color 0.15s, transform 0.15s;
+    margin-top: 10px; padding: 22px 26px; border-radius: 20px; font-size: 26px; font-weight: 600;
+    color: #cbd5e1; cursor: pointer; transition: background 0.15s, color 0.15s;
   }
-  .menu-item.focused { background: #ffffff; color: #0b0f19; transform: scale(1.03); box-shadow: 0 10px 30px rgba(255,255,255,0.18); }
+  .menu-item.focused { background: #ffffff; color: #0b0f19; box-shadow: 0 12px 30px rgba(255, 255, 255, 0.16); }
   .menu-item.disabled { opacity: 0.45; }
 
   .toast {
     position: absolute; top: 140px; left: 50%; z-index: 40;
-    transform: translate(-50%, 10px); padding: 16px 34px; border-radius: 999px;
-    background: rgba(30, 41, 59, 0.96); border: 1px solid rgba(255, 255, 255, 0.12);
-    font-size: 24px; color: #fff; opacity: 0; pointer-events: none; white-space: nowrap;
+    transform: translate(-50%, 10px); padding: 18px 38px; border-radius: 999px;
+    background: rgba(30, 41, 59, 0.96); border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    font-size: 24px; font-weight: 600; color: #fff; opacity: 0; pointer-events: none; white-space: nowrap;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -225,12 +360,13 @@
   <div class="bg"></div>
 
   <div class="stage" id="stage">
+    <div class="fx" aria-hidden="true"><i class="fx-tint a"></i><i class="fx-tint b"></i><i class="fx-tint c"></i><i class="fx-glow"></i><i class="fx-beams"></i><i class="fx-ring r2"></i><i class="fx-ring r1"></i><i class="fx-ring r3"></i><i class="fx-dust"></i><i class="fx-sheen"></i></div>
     <div class="top-bar">
-      <div class="brand"><i class="dot"></i><span>GabrielOS TV</span></div>
+      <div class="brand">GabrielOS TV</div>
       <div class="status">
         <span class="net" id="net"></span>
         <span id="clock">08:45</span>
-        <span id="date">Thu, 22 Oct</span>
+        <span id="date" style="opacity: 0.6;">Thu, 22 Oct</span>
       </div>
     </div>
 
@@ -299,7 +435,7 @@
   /* ---------- State ---------- */
   var state = {
     mode: 'home',            // home | drawer | menu
-    focus: 0, apps: [], pins: [], dockItems: [],
+    focus: 0, apps: [], pins: [], hidden: [], dockItems: [],
     drawerList: [], drawerFocus: 0,
     menuItems: [], menuFocus: 0, menuApp: null, menuFrom: 'drawer'
   };
@@ -307,7 +443,7 @@
   function $(id) { return document.getElementById(id); }
   var stage = $('stage'), dock = $('dock'), nameEl = $('appName'), descEl = $('appDesc'), labelBox = $('labelBox'),
       drawer = $('drawer'), grid = $('grid'), menuWrap = $('menuWrap'), menuEl = $('menu'), toastEl = $('toast'),
-      netEl = $('net'), clockEl = $('clock'), dateEl = $('date'), rootEl = document.documentElement;
+      netEl = $('net'), clockEl = $('clock'), dateEl = $('date');
   $('drawerClose').innerHTML = ICON.close;
 
   /* ---------- Scale stage ---------- */
@@ -327,6 +463,37 @@
     return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
   }
   function hex2(n) { return (n < 16 ? '0' : '') + n.toString(16); }
+
+  /* โทนสีของฉากหลังเปลี่ยนตามแอปที่เลือก */
+  function hueShift(hex, deg) {
+    var n = parseInt(hex.replace('#', ''), 16), r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    var mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, h = 0, sat = 0, d = mx - mn;
+    if (d) {
+      sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+      if (mx === r) h = (g - b) / d + (g < b ? 6 : 0); else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
+      h *= 60;
+    }
+    h = (h + deg + 360) % 360; sat = Math.max(sat, 0.5); l = Math.min(Math.max(l, 0.42), 0.58);
+    var c = (1 - Math.abs(2 * l - 1)) * sat, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l - c / 2, R, G, B;
+    switch (Math.floor(h / 60)) {
+      case 0: R = c; G = x; B = 0; break;
+      case 1: R = x; G = c; B = 0; break;
+      case 2: R = 0; G = c; B = x; break;
+      case 3: R = 0; G = x; B = c; break;
+      case 4: R = x; G = 0; B = c; break;
+      default: R = c; G = 0; B = x;
+    }
+    return '#' + hex2(Math.round((R + m) * 255)) + hex2(Math.round((G + m) * 255)) + hex2(Math.round((B + m) * 255));
+  }
+  var themeNow = '';
+  function setTheme(hex) {
+    if (!hex || hex === themeNow) return;
+    themeNow = hex;
+    var n = parseInt(hex.replace('#', ''), 16);
+    stage.style.setProperty('--t', hex);
+    stage.style.setProperty('--t-rgb', ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255));
+    stage.style.setProperty('--t2', hueShift(hex, 32));
+  }
 
   var colorCache = {};
   function iconColor(app, cb) {
@@ -394,7 +561,7 @@
     } catch (e) { return []; }
   }
   function savePins() {
-    var s = JSON.stringify(state.pins);
+    var s = JSON.stringify(state.pins.concat(state.hidden.map(function (id) { return { hide: id }; })));
     try { if (NATIVE) window.Android.savePins(s); else localStorage.setItem('gos.pins', s); } catch (e) {}
   }
   function findApp(pkg) {
@@ -405,9 +572,20 @@
     for (var i = 0; i < state.pins.length; i++) if (state.pins[i].pkg === pkg) return true;
     return false;
   }
-  function isDefaultPkg(pkg) {
-    for (var i = 0; i < DEFAULTS.length; i++) if (DEFAULTS[i].pkgs.indexOf(pkg) >= 0) return true;
-    return false;
+  function findDefault(id) {
+    for (var i = 0; i < DEFAULTS.length; i++) if (DEFAULTS[i].id === id) return DEFAULTS[i];
+    return null;
+  }
+  function defaultByPkg(pkg) {
+    for (var i = 0; i < DEFAULTS.length; i++) if (DEFAULTS[i].pkgs.indexOf(pkg) >= 0) return DEFAULTS[i];
+    return null;
+  }
+  function isHidden(id) { return state.hidden.indexOf(id) >= 0; }
+  function isDefaultPkg(pkg) { var d = defaultByPkg(pkg); return !!d && !isHidden(d.id); }
+  /* แปลงปุ่มหลักให้อยู่ในรูปแอป เพื่อใช้กับเมนูกดค้าง */
+  function dockApp(it) {
+    if (it.kind === 'pin') return it.app;
+    return { pkg: it.pkgs[0], label: it.name, defaultId: it.id, color: it.color, svg: ICON[it.glyph] ? it.glyph : null, text: it.glyph === 'N' ? 'N' : '' };
   }
 
   /* ---------- Launch ---------- */
@@ -425,7 +603,7 @@
 
   /* ---------- Dock ---------- */
   function buildDock() {
-    var items = DEFAULTS.map(function (d) {
+    var items = DEFAULTS.filter(function (d) { return !isHidden(d.id); }).map(function (d) {
       return { kind: 'default', id: d.id, name: d.name, desc: d.desc, glyph: d.glyph, color: d.color, pkgs: d.pkgs };
     });
     state.pins.forEach(function (p) {
@@ -457,32 +635,27 @@
       }
       bindPress(el,
         function () { setFocus(i); activateDock(i); },
-        function () { if (it.kind === 'pin') { setFocus(i); openMenu(it.app, 'dock'); } });
+        function () { if (it.kind === 'pin' || it.kind === 'default') { setFocus(i); openMenu(dockApp(it), 'dock'); } });
       dock.appendChild(el);
     });
   }
 
-  /* สีพื้นหลังเปลี่ยนตามแอปที่โฟกัส */
-  function setAccent(it) {
-    if (!it) return;
-    if (it.kind === 'pin') {
-      iconColor(it.app, function (c) {
-        var cur = state.dockItems[state.focus];
-        if (cur && cur.id === it.id) rootEl.style.setProperty('--accent', c);
-      });
-    } else rootEl.style.setProperty('--accent', it.color);
+  function themeForDock() {
+    var it = state.dockItems[state.focus]; if (!it) return;
+    if (it.kind === 'pin') iconColor(it.app, function (c) { if (state.dockItems[state.focus] === it && state.mode !== 'drawer') setTheme(c); });
+    else setTheme(it.color);
   }
 
   var labelT = null;
   function setLabelNow() {
     var it = state.dockItems[state.focus]; if (!it) return;
+    themeForDock();
     nameEl.textContent = it.name; descEl.textContent = it.desc;
     labelBox.style.opacity = '1'; labelBox.style.transform = 'translateY(0)';
-    setAccent(it);
   }
   function updateLabel() {
     var it = state.dockItems[state.focus]; if (!it) return;
-    setAccent(it);
+    themeForDock();
     labelBox.style.opacity = '0';
     labelBox.style.transform = 'translateY(10px)';
     clearTimeout(labelT);
@@ -551,7 +724,7 @@
     var el = tiles[i]; if (!el) return;
     el.classList.add('focused');
     var a = state.drawerList[i];
-    iconColor(a, function (c) { el.style.setProperty('--g', rgba(c, 0.6)); });
+    iconColor(a, function (c) { el.style.setProperty('--g', rgba(c, 0.6)); if (state.mode === 'drawer' && state.drawerFocus === i) setTheme(c); });
     var top = el.offsetTop, bottom = top + el.offsetHeight;
     if (top < grid.scrollTop + 10) grid.scrollTop = Math.max(0, top - 20);
     else if (bottom > grid.scrollTop + grid.clientHeight - 10) grid.scrollTop = bottom - grid.clientHeight + 40;
@@ -568,6 +741,7 @@
   function closeDrawer() {
     state.mode = 'home';
     drawer.classList.remove('open');
+    themeForDock();
   }
   $('drawerClose').addEventListener('click', function () { if (state.mode === 'drawer') closeDrawer(); });
 
@@ -585,6 +759,14 @@
 
   /* ---------- Pin / Unpin ---------- */
   function pinApp(a) {
+    var d = a.defaultId ? findDefault(a.defaultId) : defaultByPkg(a.pkg);
+    if (d) {
+      var k = state.hidden.indexOf(d.id); if (k < 0) return;
+      state.hidden.splice(k, 1);
+      savePins(); renderDock(); setLabelNow(); refreshBadges();
+      toast('ปักหมุด ' + d.name + ' ไว้ที่หน้าหลักแล้ว');
+      return;
+    }
     if (state.pins.length >= MAX_PINS) { toast('หน้าหลักเต็มแล้ว (ปักหมุดได้สูงสุด ' + MAX_PINS + ' แอป)'); return; }
     if (isPinned(a.pkg)) return;
     state.pins.push({ pkg: a.pkg, label: a.label });
@@ -592,26 +774,26 @@
     toast('ปักหมุด ' + a.label + ' ไว้ที่หน้าหลักแล้ว');
   }
   function unpinApp(a) {
-    state.pins = state.pins.filter(function (p) { return p.pkg !== a.pkg; });
+    var d = a.defaultId ? findDefault(a.defaultId) : defaultByPkg(a.pkg);
+    if (d) { if (!isHidden(d.id)) state.hidden.push(d.id); }
+    else state.pins = state.pins.filter(function (p) { return p.pkg !== a.pkg; });
     savePins(); renderDock(); setLabelNow(); refreshBadges();
-    toast('เลิกปักหมุด ' + a.label + ' แล้ว');
+    toast('เลิกปักหมุด ' + (d ? d.name : a.label) + ' แล้ว');
   }
 
   /* ---------- Context menu ---------- */
   function openMenu(app, from) {
     var items = [];
     items.push({ label: 'Open', run: function () {
-      closeMenu(); if (from === 'drawer') closeDrawer(); launchPkg(app.pkg, app.label);
+      closeMenu(); if (from === 'drawer') closeDrawer();
+      if (app.defaultId) launchDefault(findDefault(app.defaultId)); else launchPkg(app.pkg, app.label);
     } });
     if (!app.builtin) {
-      if (isDefaultPkg(app.pkg)) {
-        items.push({ label: 'Already on Home', disabled: true, run: function () { closeMenu(); toast(app.label + ' อยู่ในหน้าหลักอยู่แล้ว'); } });
-      } else if (isPinned(app.pkg)) {
-        items.push({ label: 'Unpin from Home', run: function () { closeMenu(); unpinApp(app); } });
-      } else {
-        items.push({ label: 'Pin to Home', run: function () { closeMenu(); pinApp(app); } });
-      }
-      items.push({ label: 'App Info', run: function () {
+      var d0 = app.defaultId ? findDefault(app.defaultId) : defaultByPkg(app.pkg);
+      var onHome = d0 ? !isHidden(d0.id) : isPinned(app.pkg);
+      if (onHome) items.push({ label: 'Unpin from Home', run: function () { closeMenu(); unpinApp(app); } });
+      else items.push({ label: 'Pin to Home', run: function () { closeMenu(); pinApp(app); } });
+      if (!app.defaultId) items.push({ label: 'App Info', run: function () {
         closeMenu(); if (NATIVE) window.Android.appInfo(app.pkg); else toast('(Demo) App Info · ' + app.pkg);
       } });
     }
@@ -621,7 +803,8 @@
     var head = document.createElement('div'); head.className = 'menu-head';
     var mi = document.createElement('div'); mi.className = 'mi';
     if (app.icon) { var im = new Image(); im.src = app.icon; mi.appendChild(im); }
-    else if (app.svg) { mi.innerHTML = ICON[app.svg]; mi.style.color = '#fff'; mi.firstChild.setAttribute('width', 36); mi.firstChild.setAttribute('height', 36); }
+    else if (app.svg) { mi.innerHTML = ICON[app.svg]; mi.style.color = '#fff'; mi.firstChild.setAttribute('width', 36); mi.firstChild.setAttribute('height', 36); if (app.color) mi.style.background = app.color; }
+    else if (app.text) { mi.textContent = app.text; mi.style.color = '#fff'; mi.style.fontSize = '34px'; mi.style.fontWeight = '800'; mi.style.background = app.color; }
     var tt = document.createElement('div'); tt.className = 'menu-title'; tt.textContent = app.label;
     head.appendChild(mi); head.appendChild(tt); menuEl.appendChild(head);
 
@@ -698,7 +881,7 @@
   function onLong() {
     if (state.mode === 'home') {
       var it = state.dockItems[state.focus];
-      if (it && it.kind === 'pin') openMenu(it.app, 'dock');
+      if (it && (it.kind === 'pin' || it.kind === 'default')) openMenu(dockApp(it), 'dock');
     } else if (state.mode === 'drawer') {
       var a = state.drawerList[state.drawerFocus];
       if (a) openMenu(a, 'drawer');
@@ -770,6 +953,7 @@
       drawer.classList.remove('open');
       state.mode = 'home';
       if (state.focus !== 0) { setFocus(0); }
+      themeForDock();
     },
     resume: function () { tick(); refreshNet(); resetPress(); }
   };
@@ -789,7 +973,9 @@
   }
 
   /* ---------- Init ---------- */
-  state.pins = loadPins();
+  var saved = loadPins();
+  state.pins = saved.filter(function (p) { return p && p.pkg; });
+  state.hidden = saved.filter(function (p) { return p && p.hide; }).map(function (p) { return p.hide; });
   renderDock();
   setLabelNow();
   tick(); refreshNet();
